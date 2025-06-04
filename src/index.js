@@ -8,14 +8,13 @@ window.Pusher = Pusher;
 
 window.Echo = new Echo({
     broadcaster: 'pusher',
-    key: '0814368aa7c6caa0ce65',
+    key: '779a8702f0ec6e2a2872',
     cluster: 'eu',
-    forceTLS: true,
 });
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-);
+root.render(<App />);
+
+
+
+

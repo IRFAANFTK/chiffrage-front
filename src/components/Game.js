@@ -1,39 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api';
 
+const FIB_CARDS = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+
 function Game({ session, player }) {
-    const [players, setPlayers] = useState(session.players);
+    const [players, setPlayers] = useState([]);
     const [chosenCard, setChosenCard] = useState(null);
     const [average, setAverage] = useState(null);
+    const [sum, setSum] = useState(null);
+    const [revealed, setRevealed] = useState(false);
+    const [showInvite, setShowInvite] = useState(false);
 
-    useEffect(() => {
-        const channel = window.Echo.private(`session.${session.code}`);
-
-        channel.listen('.player.joined', (e) => {
-            setPlayers((prev) => [...prev, e.player]);
-        });
-
-        channel.listen('.card.chosen', (e) => {
-            setPlayers((prev) =>
-                prev.map((p) => (p.id === e.player.id ? e.player : p))
-            );
-        });
-
-        channel.listen('.round.reset', () => {
-            setPlayers((prev) => prev.map((p) => ({ ...p, card: null })));
-            setChosenCard(null);
-            setAverage(null);
-        });
+    // 📡 Fetch player list from backend
+    const fetchPlayers = useCallback(async () => {
+        try {
+            const res = await api.get(`/sessions/${session.code}`);
+            setPlayers(res.data.players || []);
+        } catch (error) {
+            console.error('Error fetching players:', error);
+        }
     }, [session.code]);
 
+    // 🏁 Initial fetch on mount
     useEffect(() => {
-        const allChosen = players.every((p) => p.card !== null);
-        if (allChosen && players.length > 0) {
-            const total = players.reduce((sum, p) => sum + p.card, 0);
-            setAverage((total / players.length).toFixed(2));
-        }
-    }, [players]);
+        fetchPlayers();
+    }, [fetchPlayers]);
 
+    // 🔔 Listen for real-time updates using Pusher (via Laravel Echo)
+    useEffect(() => {
+        const waitForEcho = setInterval(() => {
+            if (window.Echo && window.Echo.connector) {
+                clearInterval(waitForEcho);
+                const channel = window.Echo.channel(`session.${session.code}`);
+                channel.listen('.player.joined', (e) => {
+                    console.log('👥 Player joined:', e.player);
+                    fetchPlayers();
+                });
+                // other listeners...
+            }
+        }, 200);
+        return () => clearInterval(waitForEcho);
+    }, [session.code, fetchPlayers]);
+    // 🃏 Player chooses a card
     const chooseCard = async (card) => {
         setChosenCard(card);
         await api.post(`/sessions/${session.code}/choose`, {
@@ -42,49 +50,151 @@ function Game({ session, player }) {
         });
     };
 
+    // 📊 Reveal average and total
+    const revealCards = () => {
+        console.log(players);
+        setRevealed(true);
+        const validPlayers = players.filter((p) => p.card !== null && p.card !== undefined);
+        const total = validPlayers.reduce((acc, p) => acc + p.card, 0);
+        const totalVoters = validPlayers.length;
+        setSum(total);
+        setAverage(totalVoters > 0 ? (total / totalVoters).toFixed(2) : 0);
+    };
+
+    // 🔁 Reset round
     const resetRound = async () => {
         await api.post(`/sessions/${session.code}/reset`);
     };
 
+    // 📤 Copy invite link
+    const inviteLink = `${window.location.origin}/join/${session.code}`;
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(inviteLink);
+        alert('Link copied to clipboard!');
+    };
+
+    // 🧠 Render UI
     return (
-        <div className="mt-4">
-            <h2 className="text-lg font-semibold mb-2">Session: {session.code}</h2>
-            <div className="mb-4">
-                <h3 className="font-semibold">Players:</h3>
-                <ul>
-                    {players.map((p) => (
-                        <li key={p.id}>{p.name} {p.card !== null && `- Card: ${p.card}`}</li>
-                    ))}
-                </ul>
+        <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white flex flex-col items-center justify-center px-4 py-6 relative">
+
+            {/* 🌗 Theme toggle */}
+            <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
+                <button
+                    onClick={() => document.documentElement.classList.toggle('dark')}
+                    className="bg-gray-800 text-white px-3 py-1 rounded hover:bg-gray-700 transition text-sm"
+                >
+                    🌗 Mode
+                </button>
+                <div className="text-sm font-semibold text-black dark:text-white">
+                    Session: <span className="text-xs font-mono">{session.code}</span>
+                </div>
             </div>
 
-            {average ? (
-                <div className="text-green-600 font-bold mb-4">Average: {average}</div>
-            ) : (
-                <div className="mb-4">
-                    <h3 className="font-semibold">Choose a Card:</h3>
-                    <div className="flex gap-2 flex-wrap">
-                        {[...Array(10).keys()].map((i) => (
+            {/* 🔗 Invite */}
+            <div className="absolute top-4 right-4">
+                <button
+                    onClick={() => setShowInvite(!showInvite)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+                >
+                    {showInvite ? 'Close' : 'Invite Players'}
+                </button>
+
+                {showInvite && (
+                    <div className="mt-2 bg-gray-100 dark:bg-neutral-800 p-4 border border-gray-300 dark:border-gray-600 rounded shadow-lg w-72">
+                        <p className="mb-2">Share this link with others:</p>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                readOnly
+                                value={inviteLink}
+                                className="px-2 py-1 bg-white dark:bg-neutral-900 border border-gray-400 dark:border-gray-500 rounded w-full"
+                            />
                             <button
-                                key={i + 1}
-                                onClick={() => chooseCard(i + 1)}
+                                onClick={copyToClipboard}
+                                className="bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700"
+                            >
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* 👥 Player list */}
+            <div className="relative bg-gray-100 dark:bg-neutral-900 p-6 rounded-xxl border border-gray-300 dark:border-gray-700 shadow-xl w-full max-w-4xl flex flex-col items-center animate-fade-in mt-20">
+                <h3 className="text-xl font-semibold mb-4">Table des Joueurs</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-6">
+                    {players.map((p) => (
+                        <div
+                            key={p.id}
+                            className="p-4 rounded-lg bg-gray-200 dark:bg-neutral-800 shadow text-center"
+                        >
+                            <p className="font-bold">{p.name}</p>
+                            {revealed ? (
+                                <p className="text-green-500 text-xl font-semibold mt-2 animate-fade-in">
+                                    {p.card !== null ? `🃏 ${p.card}` : '❌ Aucune carte'}
+                                </p>
+                            ) : (
+                                <p className="text-yellow-500 mt-2 animate-pulse">Attente...</p>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {/* 🔍 Reveal cards */}
+                {!revealed && (
+                    <button
+                        onClick={revealCards}
+                        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition shadow-lg"
+                    >
+                        Révéler les Cartes
+                    </button>
+                )}
+
+                {/* 📈 Show average + sum */}
+                {revealed && (
+                    <div className="mt-6 text-center animate-fade-in">
+                        <p className="text-xl font-semibold text-green-500 mb-1">
+                            🧮 Somme: {sum}
+                        </p>
+                        <p className="text-xl font-semibold text-cyan-500">
+                            📊 Moyenne: {average}
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* 🔢 Card picker */}
+            {!revealed && (
+                <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-center mb-4">
+                        Choisissez votre carte
+                    </h3>
+                    <div className="flex flex-wrap justify-center gap-4">
+                        {FIB_CARDS.map((num) => (
+                            <button
+                                key={num}
+                                onClick={() => chooseCard(num)}
                                 disabled={chosenCard !== null}
-                                className={`px-3 py-1 rounded ${
-                                    chosenCard === i + 1 ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                                className={`w-16 h-20 rounded-lg text-xl font-bold border-2 transition-transform transform hover:scale-110 duration-150 ease-in-out ${
+                                    chosenCard === num
+                                        ? 'bg-blue-600 text-white border-blue-300'
+                                        : 'bg-gray-300 dark:bg-neutral-700 text-black dark:text-white border-gray-400 dark:border-gray-500'
                                 }`}
                             >
-                                {i + 1}
+                                {num}
                             </button>
                         ))}
                     </div>
                 </div>
             )}
 
+            {/* 🔁 Reset round button */}
             <button
                 onClick={resetRound}
-                className="bg-red-500 text-white px-3 py-1 rounded"
+                className="mt-10 bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition"
             >
-                Start Again
+                Recommencer
             </button>
         </div>
     );
