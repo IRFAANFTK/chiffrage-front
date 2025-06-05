@@ -52,7 +52,6 @@ function Game({ session, player }) {
 
     // 📊 Reveal average and total
     const revealCards = () => {
-        console.log(players);
         setRevealed(true);
         const validPlayers = players.filter((p) => p.card !== null && p.card !== undefined);
         const total = validPlayers.reduce((acc, p) => acc + p.card, 0);
