@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/chiffrage-front/static/css/main.6cb1a032.css",
-    "main.js": "/chiffrage-front/static/js/main.c0f15228.js",
+    "main.css": "/chiffrage-front/static/css/main.1afcc7a7.css",
+    "main.js": "/chiffrage-front/static/js/main.1c18b9d3.js",
     "static/media/logoxefi.png": "/chiffrage-front/static/media/logoxefi.02f2d87deab970f9b411.png",
     "index.html": "/chiffrage-front/index.html",
-    "main.6cb1a032.css.map": "/chiffrage-front/static/css/main.6cb1a032.css.map",
-    "main.c0f15228.js.map": "/chiffrage-front/static/js/main.c0f15228.js.map"
+    "main.1afcc7a7.css.map": "/chiffrage-front/static/css/main.1afcc7a7.css.map",
+    "main.1c18b9d3.js.map": "/chiffrage-front/static/js/main.1c18b9d3.js.map"
   },
   "entrypoints": [
-    "static/css/main.6cb1a032.css",
-    "static/js/main.c0f15228.js"
+    "static/css/main.1afcc7a7.css",
+    "static/js/main.1c18b9d3.js"
   ]
 }
