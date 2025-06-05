@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://10.49.255.184:80/api', // Laravel API URL
+    baseURL: 'https://dcc9-41-207-138-102.ngrok-free.app/api', // Laravel API URL
 });
 
 export default api;
