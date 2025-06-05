@@ -11,7 +11,7 @@ function Game({ session, player }) {
     const [revealed, setRevealed] = useState(false);
     const [showInvite, setShowInvite] = useState(false);
 
-    // 📡 Fetch player list from backend
+    // Fetch players from backend
     const fetchPlayers = useCallback(async () => {
         try {
             const res = await api.get(`/sessions/${session.code}`);
@@ -21,12 +21,12 @@ function Game({ session, player }) {
         }
     }, [session.code]);
 
-    // 🏁 Initial fetch on mount
+    // Initial fetch on mount
     useEffect(() => {
         fetchPlayers();
     }, [fetchPlayers]);
 
-    // 🔔 Listen for real-time updates using Pusher (via Laravel Echo)
+    // Listen for real-time updates (e.g., with Pusher / Laravel Echo)
     useEffect(() => {
         const waitForEcho = setInterval(() => {
             if (window.Echo && window.Echo.connector) {
@@ -36,47 +36,79 @@ function Game({ session, player }) {
                     console.log('👥 Player joined:', e.player);
                     fetchPlayers();
                 });
-                // other listeners...
+                channel.listen('.player.chosen', () => {
+                    fetchPlayers();
+                });
+                channel.listen('.session.reset', () => {
+                    setChosenCard(null);
+                    setRevealed(false);
+                    setSum(null);
+                    setAverage(null);
+                    fetchPlayers();
+                });
             }
         }, 200);
         return () => clearInterval(waitForEcho);
     }, [session.code, fetchPlayers]);
-    // 🃏 Player chooses a card
+
+    // Player chooses a card
     const chooseCard = async (card) => {
+        if (chosenCard !== null) return; // prevent re-choosing
         setChosenCard(card);
-        await api.post(`/sessions/${session.code}/choose`, {
-            player_id: player.id,
-            card,
-        });
+        try {
+            await api.post(`/sessions/${session.code}/choose`, {
+                player_id: player.id,
+                card,
+            });
+            await fetchPlayers(); // Refresh players to get updated cards
+        } catch (error) {
+            console.error('Error choosing card:', error);
+            alert('Erreur lors du choix de la carte');
+            setChosenCard(null);
+        }
     };
 
-    // 📊 Reveal average and total
+    // Automatically calculate sum and average when players or revealed changes
+    useEffect(() => {
+        if (revealed) {
+            const validPlayers = players.filter(p => p.card !== null && p.card !== undefined);
+            const total = validPlayers.reduce((acc, p) => acc + p.card, 0);
+            const totalVoters = validPlayers.length;
+            setSum(total);
+            setAverage(totalVoters > 0 ? (total / totalVoters).toFixed(2) : 0);
+        }
+    }, [players, revealed]);
+
+    // Reveal cards
     const revealCards = () => {
         setRevealed(true);
-        const validPlayers = players.filter((p) => p.card !== null && p.card !== undefined);
-        const total = validPlayers.reduce((acc, p) => acc + p.card, 0);
-        const totalVoters = validPlayers.length;
-        setSum(total);
-        setAverage(totalVoters > 0 ? (total / totalVoters).toFixed(2) : 0);
     };
 
-    // 🔁 Reset round
+    // Reset round
     const resetRound = async () => {
-        await api.post(`/sessions/${session.code}/reset`);
+        try {
+            await api.post(`/sessions/${session.code}/reset`);
+            setChosenCard(null);
+            setRevealed(false);
+            setSum(null);
+            setAverage(null);
+            await fetchPlayers();
+        } catch (error) {
+            console.error('Error resetting round:', error);
+            alert('Erreur lors du reset');
+        }
     };
 
-    // 📤 Copy invite link
+    // Invite link and copy function
     const inviteLink = `${window.location.origin}/join/${session.code}`;
     const copyToClipboard = () => {
         navigator.clipboard.writeText(inviteLink);
         alert('Link copied to clipboard!');
     };
 
-    // 🧠 Render UI
     return (
         <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white flex flex-col items-center justify-center px-4 py-6 relative">
-
-            {/* 🌗 Theme toggle */}
+            {/* Theme toggle */}
             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
                 <button
                     onClick={() => document.documentElement.classList.toggle('dark')}
@@ -89,7 +121,7 @@ function Game({ session, player }) {
                 </div>
             </div>
 
-            {/* 🔗 Invite */}
+            {/* Invite */}
             <div className="absolute top-4 right-4">
                 <button
                     onClick={() => setShowInvite(!showInvite)}
@@ -97,7 +129,6 @@ function Game({ session, player }) {
                 >
                     {showInvite ? 'Close' : 'Invite Players'}
                 </button>
-
                 {showInvite && (
                     <div className="mt-2 bg-gray-100 dark:bg-neutral-800 p-4 border border-gray-300 dark:border-gray-600 rounded shadow-lg w-72">
                         <p className="mb-2">Share this link with others:</p>
@@ -119,7 +150,7 @@ function Game({ session, player }) {
                 )}
             </div>
 
-            {/* 👥 Player list */}
+            {/* Player list */}
             <div className="relative bg-gray-100 dark:bg-neutral-900 p-6 rounded-xxl border border-gray-300 dark:border-gray-700 shadow-xl w-full max-w-4xl flex flex-col items-center animate-fade-in mt-20">
                 <h3 className="text-xl font-semibold mb-4">Table des Joueurs</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-6">
@@ -140,7 +171,7 @@ function Game({ session, player }) {
                     ))}
                 </div>
 
-                {/* 🔍 Reveal cards */}
+                {/* Reveal cards button */}
                 {!revealed && (
                     <button
                         onClick={revealCards}
@@ -150,25 +181,26 @@ function Game({ session, player }) {
                     </button>
                 )}
 
-                {/* 📈 Show average + sum */}
+                {/* Show average and sum */}
                 {revealed && (
                     <div className="mt-6 text-center animate-fade-in">
-                        <p className="text-xl font-semibold text-green-500 mb-1">
-                            🧮 Somme: {sum}
-                        </p>
-                        <p className="text-xl font-semibold text-cyan-500">
-                            📊 Moyenne: {average}
-                        </p>
+                        <p className="text-xl font-semibold text-green-500 mb-1">🧮 Somme: {sum}</p>
+                        <p className="text-xl font-semibold text-cyan-500">📊 Moyenne: {average}</p>
                     </div>
                 )}
             </div>
 
-            {/* 🔢 Card picker */}
+            {/* Show current player's chosen card immediately before reveal */}
+            {chosenCard !== null && !revealed && (
+                <p className="mt-4 text-center text-blue-700 font-semibold">
+                    Vous avez choisi: <span className="text-xl">🃏 {chosenCard}</span>
+                </p>
+            )}
+
+            {/* Card picker */}
             {!revealed && (
                 <div className="mt-8">
-                    <h3 className="text-lg font-semibold text-center mb-4">
-                        Choisissez votre carte
-                    </h3>
+                    <h3 className="text-lg font-semibold text-center mb-4">Choisissez votre carte</h3>
                     <div className="flex flex-wrap justify-center gap-4">
                         {FIB_CARDS.map((num) => (
                             <button
@@ -188,7 +220,7 @@ function Game({ session, player }) {
                 </div>
             )}
 
-            {/* 🔁 Reset round button */}
+            {/* Reset round button */}
             <button
                 onClick={resetRound}
                 className="mt-10 bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700 transition"
