@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../api';
 import xefiLogo from '../assets/logoxefi.png';
+import { FaMicrosoft, FaEnvelope } from 'react-icons/fa';
 
 const FIB_CARDS = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
@@ -44,7 +45,6 @@ function Game({ session, player }) {
                 });
 
                 channel.listen('.cards.revealed', () => {
-                    console.log('📢 Cards revealed');
                     revealCards();
                 });
             }
@@ -121,6 +121,35 @@ function Game({ session, player }) {
         alert('Link copied to clipboard!');
     };
 
+    const openTeamsLink = (link, session) => {
+        const message = `Join my Planning Poker session!\n\nSession Code: ${session.code}\nClick to join: ${link}`;
+
+        // Teams app deep link
+        const appUrl = `msteams://teams.microsoft.com/l/chat/0/0?users=&message=${encodeURIComponent(message)}`;
+        window.location.href = appUrl;
+
+        // Fallback to web
+        setTimeout(() => {
+            const webUrl = `https://teams.microsoft.com/share?href=${encodeURIComponent(link)}&message=${encodeURIComponent(message)}`;
+            window.open(webUrl, '_blank');
+        }, 1500);
+    };
+
+    const openOutlookLink = (link, session) => {
+        const subject = 'Join My Planning Poker Session';
+        const body = `Join my Planning Poker session!\n\nSession Code: ${session.code}\nClick to join: ${link}`;
+
+        // Native mail client
+        const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoUrl;
+
+        // Fallback to Outlook web
+        setTimeout(() => {
+            const webUrl = `https://outlook.office.com/mail/deeplink/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            window.open(webUrl, '_blank');
+        }, 1500);
+    };
+
     return (
         <div className="min-h-screen bg-white text-black dark:bg-black dark:text-white flex flex-col items-center justify-center px-4 py-6 relative">
             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
@@ -145,35 +174,49 @@ function Game({ session, player }) {
                 {showInvite && (
                     <div className="mt-2 bg-gray-100 dark:bg-neutral-800 p-4 border border-gray-300 dark:border-gray-600 rounded shadow-lg w-72">
                         <p className="mb-2">Share this link with others:</p>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                readOnly
-                                value={inviteLink}
-                                className="px-2 py-1 bg-white dark:bg-neutral-900 border border-gray-400 dark:border-gray-500 rounded w-full"
-                            />
-                            <button
-                                onClick={copyToClipboard}
-                                className="bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700"
-                            >
-                                Copy
-                            </button>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={inviteLink}
+                                    className="px-2 py-1 bg-white dark:bg-neutral-900 border border-gray-400 dark:border-gray-500 rounded w-full"
+                                />
+                                <button
+                                    onClick={copyToClipboard}
+                                    className="bg-green-600 px-2 py-1 rounded text-white hover:bg-green-700"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                            <div className="flex gap-3 mt-2 justify-center">
+                                <button
+                                    onClick={() => openTeamsLink(inviteLink, session)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded"
+                                >
+                                    <FaMicrosoft /> Teams
+                                </button>
+                                <button
+                                    onClick={() => openOutlookLink(inviteLink, session)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                                >
+                                    <FaEnvelope /> Outlook
+                                </button>
+                            </div>
+
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* ✅ LOGO ON TOP */}
             <div className="relative w-full max-w-4xl z-10 flex justify-center mb-[-32px]">
                 <img
                     src={xefiLogo}
                     alt="XEFI Logo"
                     className="w-32 md:w-40 mb-4 bg-white p-2 rounded-md shadow"
                 />
-
             </div>
 
-            {/* PLAYER CARD AREA */}
             <div className="relative bg-gray-100 dark:bg-neutral-900 p-6 rounded-xxl border border-gray-300 dark:border-gray-700 shadow-xl w-full max-w-4xl flex flex-col items-center animate-fade-in mt-20">
                 <h3 className="text-xl font-semibold mb-4">Table des Joueurs</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mb-10">

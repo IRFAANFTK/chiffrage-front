@@ -5,7 +5,7 @@
 html, body {
     @apply min-h-screen;
 }
-/* === Card Flip Animation === */
+
 .flip-card {
     perspective: 1000px;
 }
@@ -64,7 +64,7 @@ html, body {
     animation: pulse-border 1.5s infinite ease-in-out;
 }
 
-/* === Confetti Effect === */
+
 .confetti-wrapper {
     position: absolute;
     width: 100%;
